@@ -1,0 +1,53 @@
+# status
+
+the tools and library can read and write common zip files.  encryption
+is not supported, as are zip64 and most other mostly irrelevant
+extensions.
+
+
+# intro
+
+zipfs consists of three parts:
+
+- a zip file system, allowing you to mount a zip file using styx.
+- tools to read/list/write zip files.
+- a library to read & write zip files.
+
+see the manual page getzip(1) for documentation about the tools
+getzip, lszip and putzip.  see the manual page zipfs(4) for
+documentation about the zip file system.  for now, the library is
+undocumented.  the implementation of the programs should be regarded
+as library documentation for now.
+
+
+# install
+
+ensure you have a valid "mkconfig" (including/binding/symlinking
+your inferno's mkconfig works), then type "mk install" to install
+the module file and compile & install the zip library and tools.
+
+
+# latest version
+
+get it from http://www.ueber.net/code/r/zipfs
+
+
+# licence & author
+
+all files are in the public domain.  this code has been written by
+mechiel lukkien, reachable at mechiel@ueber.net or mechiel@xs4all.nl.
+
+
+# todo
+
+- determine inflate problem on input, where inflate wants one more
+  byte than in input stream, and then returns it as leftover byte.
+
+perhaps:
+
+- zip64 extensions
+- use attributes:
+  0xd=unix -> uid,gid,times,links/device
+  0x8 => undocumented charset encoding...
+  0x7075 => info-zip utf-8 path
+  0x6375 => info-zip utf-8 comment

@@ -1,0 +1,1 @@
+this is a longer file that should be compressible.  the earlier examples were too short, and thus zip did not compress their contents.  making it impossible to test!

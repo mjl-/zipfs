@@ -1,0 +1,13 @@
+<../../mkconfig
+
+TARG=\
+	zip.dis\
+
+SYSMODULES=\
+	sys.m\
+	bufio.m\
+	zip.m\
+
+DISBIN=$ROOT/dis/lib
+
+<$ROOT/mkfiles/mkdis

@@ -1,0 +1,1 @@
+a reasonably small file that should still be large enough to be compressible.

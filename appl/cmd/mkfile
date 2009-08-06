@@ -1,0 +1,20 @@
+<../../mkconfig
+
+TARG=\
+	lszip.dis\
+	getzip.dis\
+	putzip.dis\
+	zipfs.dis\
+
+SYSMODULES=\
+	arg.m\
+	bufio.m\
+	daytime.m\
+	draw.m\
+	string.m\
+	sys.m\
+	zip.m\
+
+DISBIN=$ROOT/dis
+
+<$ROOT/mkfiles/mkdis

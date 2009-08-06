@@ -1,0 +1,6 @@
+<../mkconfig
+
+MODS=\
+	zip.m\
+
+<mkmod

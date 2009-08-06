@@ -1,0 +1,7 @@
+<../mkconfig
+
+MAN=\
+	1/getzip\
+	4/zipfs\
+
+<mkman
