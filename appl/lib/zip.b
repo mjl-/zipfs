@@ -588,6 +588,7 @@ pushbuf0(fd: ref Sys->FD, off: big, n: int, fdc: chan of ref Sys->FD, hdrcrc: bi
 	docrc := 1;
 	crc := ~0;
 	end := off+big n;
+Fio:
 	for(;;) {
 		(roff0, count, nil, rc) := <-fio.read;
 		if(rc == nil)
@@ -603,11 +604,14 @@ pushbuf0(fd: ref Sys->FD, off: big, n: int, fdc: chan of ref Sys->FD, hdrcrc: bi
 			rc <-= (nil, sprint("%r"));
 			continue;
 		}
-		if(docrc && prevoff == roff0)
+		docrc = docrc && prevoff == roff0;
+		if(docrc) {
 			crc = crc32(crc, buf[:nn]);
-		if(docrc && nn == 0 && ~crc != int hdrcrc) {
-			rc <-= (nil, sprint("crc mismatch, expected %bux, calculated %ux", hdrcrc, ~crc));
-			return;
+			if(nn == 0 && ~crc != int hdrcrc) {
+				rc <-= (nil, sprint("crc mismatch, expected %bux, calculated %ux", hdrcrc, ~crc));
+				break Fio;
+			}
+			prevoff += nn;
 		}
 		rc <-= (buf[:nn], nil);
 	}

@@ -9,7 +9,8 @@ extensions.
 
 zipfs consists of three parts:
 
-- a zip file system, allowing you to mount a zip file using styx.
+- a read-only zip file system, allowing you to mount a zip file
+  using styx.
 - tools to read/list/write zip files.
 - a library to read & write zip files.
 

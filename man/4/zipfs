@@ -14,7 +14,7 @@ dir
 .I Zipfs
 makes the contents of
 .I zipfile
-available in the file system.
+available in the file system, for reading.
 .I Zipfs
 serves the styx protocol on its file descriptor 0.
 .PP
@@ -39,3 +39,5 @@ Print a trace of styx messages.
 Zip64 extensions are not supported.
 .br
 Encrypted archives are not supported.
+.br
+Only uncompressed and deflate-compressed files are supported.
