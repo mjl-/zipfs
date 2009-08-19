@@ -9,7 +9,7 @@ mount {
 ]
 .I zipfile
 }
-dir
+mtpt
 .SH DESCRIPTION
 .I Zipfs
 makes the contents of
