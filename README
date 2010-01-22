@@ -23,14 +23,18 @@ as library documentation for now.
 
 # install
 
-ensure you have a valid "mkconfig" (including/binding/symlinking
-your inferno's mkconfig works), then type "mk install" to install
-the module file and compile & install the zip library and tools.
+make sure $ROOT is set.  now "mk install" to compile and install
+the files.
+
+when building from within inferno, insert SYSHOST=Inferno and ROOT=
+in the mk invocations to override the values in the mkconfig.
 
 
 # latest version
 
-get it from http://www.ueber.net/code/r/zipfs
+get the latest version at:
+
+	http://www.ueber.net/code/r/zipfs
 
 
 # licence & author

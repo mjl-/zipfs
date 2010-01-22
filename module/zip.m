@@ -1,4 +1,5 @@
-Zip: module {
+Zip: module
+{
 	PATH:	con "/dis/lib/zip.dis";
 
 	dflag:	int;
