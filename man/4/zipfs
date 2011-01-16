@@ -5,7 +5,7 @@ zipfs \- mount zip archive
 mount {
 .B zipfs
 [
-.B -dD
+.B -dDp
 ]
 .I zipfile
 }

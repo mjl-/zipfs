@@ -13,7 +13,6 @@ getzip, lszip, putzip \- zip file utilities
 .I path
 .I ...
 ]
-.B 
 .br
 .B lszip
 [
