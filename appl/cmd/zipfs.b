@@ -4,7 +4,9 @@
 # set up a styxservers nametree and serve from that.
 # bit 62 of the qid denotes the directory bit.
 #
-# on first read of a file, we open the underlying zip file.
+# if a file is not compressed and -p was set, we read directly through
+# the zipfile's fd (no crc protection).
+# otherwise, on first read of a file, we open a fd for that file.
 # sequential or higher-than-current offset reads reuse the fd.
 # random reads to before the current offset reopen the file and
 # seek to the desired location by reading & discarding data.
@@ -31,6 +33,9 @@ include "styxservers.m";
 	Styxserver, Fid, Navigator, Navop: import styxservers;
 	nametree: Nametree;
 	Tree: import nametree;
+include "tables.m";
+	tables: Tables;
+	Table, Strhash: import tables;
 include "zip.m";
 	zip: Zip;
 	Fhdr, CDFhdr, Endofcdir: import zip;
@@ -43,7 +48,6 @@ Zipfs: module {
 # directories for styx nametree
 Zdir: adt {
 	name:	string;
-	path:	string;  # full path, without trailing slash
 	qid:	big;
 	pqid:	big;
 };
@@ -53,7 +57,8 @@ Zfile: adt {
 	fid:	int;
 	fd:	ref Sys->FD;
 	off:	big;
-	f:	ref CDFhdr;
+	cdf:	ref CDFhdr;
+	f:	ref Fhdr;
 };
 
 Qiddir: con big 1<<62;
@@ -61,16 +66,18 @@ Qiddir: con big 1<<62;
 zipfd: ref Sys->FD;
 srv: ref Styxserver;
 files: array of ref Fhdr;
-zdirs: list of ref Zdir;
+zdirs: ref Strhash[ref Zdir]; # indexed by full path without trailing slash
 rootzdir: ref Zdir;
 dirgen: int;
 
 cdirfhdrs: array of ref CDFhdr;
 
-zfiles: list of ref Zfile;
+zfiles: ref Table[ref Zfile]; # indexed by fid
 
 Dflag: int;
 dflag: int;
+pflag: int;
+now: int;
 
 init(nil: ref Draw->Context, args: list of string)
 {
@@ -85,6 +92,7 @@ init(nil: ref Draw->Context, args: list of string)
 	styxservers->init(styx);
 	nametree = load Nametree Nametree->PATH;
 	nametree->init();
+	tables = load Tables Tables->PATH;
 	zip = load Zip Zip->PATH;
 	zip->init();
 
@@ -94,17 +102,20 @@ init(nil: ref Draw->Context, args: list of string)
 		fail(sprint("bind /chan: %r"));
 
 	arg->init(args);
-	arg->setusage(arg->progname()+" [-Dd] zipfile");
+	arg->setusage(arg->progname()+" [-Ddp] zipfile");
 	while((c := arg->opt()) != 0)
 		case c {
 		'D' =>	Dflag++;
 			styxservers->traceset(Dflag);
 		'd' =>	zip->dflag = dflag++;
+		'p' =>	pflag++;
 		* =>	arg->usage();
 		}
 	args = arg->argv();
 	if(len args != 1)
 		arg->usage();
+
+	zdirs = zdirs.new(101, nil);
 
 	zipfd = sys->open(hd args, Sys->OREAD);
 	if(zipfd == nil)
@@ -115,9 +126,10 @@ init(nil: ref Draw->Context, args: list of string)
 	if(err != nil)
 		fail("parsing zip: "+err);
 
+	now = daytime->now();
 	(tree, treeop) := nametree->start();
-	rzd := rootzdir = ref Zdir (".", ".", big 0|Qiddir, big 0|Qiddir);
-	tree.create(rzd.pqid, dir(rzd.name, rzd.qid, daytime->now(), big 0));
+	rzd := rootzdir = ref Zdir (".", big 0|Qiddir, big 0|Qiddir);
+	tree.create(rzd.pqid, dir(rzd.name, rzd.qid, now, big 0));
 
 	for(i := 0; i < len cdirfhdrs; i++) {
 		f := cdirfhdrs[i];
@@ -129,6 +141,9 @@ init(nil: ref Draw->Context, args: list of string)
 		qid := big (i+1);
 		tree.create(zd.qid, dir(name, qid, f.mtime, f.uncomprsize));
 	}
+	zdirs = nil;
+
+	zfiles = zfiles.new(31, nil);
 
 	msgc: chan of ref Tmsg;
 	(msgc, srv) = Styxserver.new(sys->fildes(0), Navigator.new(treeop), big 0|Qiddir);
@@ -143,15 +158,15 @@ ensuredir(tree: ref Tree, s: string): ref Zdir
 		return rootzdir;
 	s = s[:len s-1];
 
-	for(l := zdirs; l != nil; l = tl l)
-		if((hd l).path == s)
-			return hd l;
+	zd := zdirs.find(s);
+	if(zd != nil)
+		return zd;
 
 	(ppath, name) := str->splitstrr(s, "/");
 	pzd := ensuredir(tree, ppath);
-	zd := ref Zdir (name, s, big ++dirgen|Qiddir, pzd.qid);
-	tree.create(pzd.qid, dir(zd.name, zd.qid, daytime->now(), big 0));
-	zdirs = zd::zdirs;
+	zd = ref Zdir (name, big ++dirgen|Qiddir, pzd.qid);
+	tree.create(pzd.qid, dir(zd.name, zd.qid, now, big 0));
+	zdirs.add(s, zd);
 	return zd;
 }
 
@@ -164,7 +179,7 @@ dir(name: string, qid: big, mtime: int, length: big): Sys->Dir
 	d.qid.path = qid;
 	if((qid & Qiddir) != big 0) {
 		d.qid.qtype = Sys->QTDIR;
-		d.mode = Sys->DMDIR|8r777;
+		d.mode = Sys->DMDIR|8r555;
 	} else {
 		d.qid.qtype = Sys->QTFILE;
 		d.mode = 8r444;
@@ -191,31 +206,18 @@ done:
 	killgrp(sys->pctl(0, nil));
 }
 
-findzfile(fid: int): ref Zfile
-{
-	for(l := zfiles; l != nil; l = tl l)
-		if((hd l).fid == fid)
-			return hd l;
-	return nil;
-}
-
-delzfile(fid: int)
-{
-	n: list of ref Zfile;
-	for(l := zfiles; l != nil; l = tl l)
-		if((hd l).fid != fid)
-			n = hd l::n;
-	zfiles = n;
-}
-
 openzfile(fid: int, qid: big): (ref Zfile, string)
 {
-	f := cdirfhdrs[int qid-1];
-	(fd, nil, err) := zip->openfile(zipfd, f);
+	cdf := cdirfhdrs[int qid-1];
+	zf := ref Zfile (fid, nil, big 0, cdf, nil);
+	err: string;
+	if(pflag && cdf.comprmethod == zip->Mplain)
+		(zf.f, err) = zip->readfhdr(zipfd, cdf);
+	else
+		(zf.fd, nil, err) = zip->openfile(zipfd, cdf);
 	if(err != nil)
 		return (nil, err);
-	zf := ref Zfile (fid, fd, big 0, f);
-	zfiles = zf::zfiles;
+	zfiles.add(fid, zf);
 	return (zf, nil);
 }
 
@@ -225,7 +227,7 @@ zfileseek(zf: ref Zfile, off: big): string
 		return nil;
 
 	if(off < zf.off) {
-		(fd, nil, err) := zip->openfile(zipfd, zf.f);
+		(fd, nil, err) := zip->openfile(zipfd, zf.cdf);
 		if(err != nil)
 			return err;
 		zf.fd = fd;
@@ -254,7 +256,7 @@ dostyx(mm: ref Tmsg)
 	Remove =>
 		f := srv.getfid(m.fid);
 		if(f != nil && f.isopen && (f.path & Qiddir) == big 0)
-			delzfile(m.fid);
+			zfiles.del(m.fid);
 		srv.default(m);
 
 	Read =>
@@ -262,7 +264,7 @@ dostyx(mm: ref Tmsg)
 		if(f.qtype & Sys->QTDIR)
 			return srv.default(m);
 
-		zf := findzfile(m.fid);
+		zf := zfiles.find(m.fid);
 		if(zf == nil) {
 			err: string;
 			(zf, err) = openzfile(m.fid, f.path);
@@ -270,14 +272,21 @@ dostyx(mm: ref Tmsg)
 				return replyerror(m, err);
 		}
 
-		err := zfileseek(zf, m.offset);
-		if(err != nil)
-			return replyerror(m, err);
-		n := sys->read(zf.fd, buf := array[m.count] of byte, len buf);
-		if(n < 0)
-			return replyerror(m, sprint("%r"));
-		zf.off += big n;
-		srv.reply(ref Rmsg.Read(m.tag, buf[:n]));
+		if(zf.f == nil) {
+			err := zfileseek(zf, m.offset);
+			if(err != nil)
+				return replyerror(m, err);
+			n := sys->read(zf.fd, buf := array[m.count] of byte, len buf);
+			if(n < 0)
+				return replyerror(m, sprint("%r"));
+			zf.off += big n;
+			srv.reply(ref Rmsg.Read(m.tag, buf[:n]));
+		} else {
+			n := zip->pread(zipfd, zf.f, buf := array[m.count] of byte, len buf, m.offset);
+			if(n < 0)
+				return replyerror(m, sprint("%r"));
+			srv.reply(ref Rmsg.Read(m.tag, buf[:n]));
+		}
 
 	* =>
 		srv.default(mm);

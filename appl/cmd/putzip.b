@@ -24,6 +24,7 @@ Putzip: module {
 
 dflag: int;
 vflag: int;
+pflag: int;
 
 zb: ref Iobuf;
 fileheaders: list of ref (big, ref Fhdr);
@@ -41,11 +42,12 @@ init(nil: ref Draw->Context, args: list of string)
 	zip->init();
 
 	arg->init(args);
-	arg->setusage(arg->progname()+" [-dv] zipfile [path ...]");
+	arg->setusage(arg->progname()+" [-dvp] zipfile [path ...]");
 	while((c := arg->opt()) != 0)
 		case c {
 		'd' =>	zip->dflag = dflag++;
 		'v' =>	vflag++;
+		'p' =>	pflag++;
 		* =>	arg->usage();
 		}
 	args = arg->argv();
@@ -117,6 +119,8 @@ mkfhdr(mtime: int, s: string): ref Fhdr
 	f.versneeded = 20;
 	f.flags = zip->Futf8;
 	f.comprmethod = zip->Mdeflate;
+	if(pflag)
+		f.comprmethod = zip->Mplain;
 	f.mtime = mtime;
 	f.filename = zip->sanitizepath(s);
 	f.comprsize = big 0;
@@ -165,14 +169,52 @@ putfile(s: string, fd: ref Sys->FD, dir: Sys->Dir)
 	if(zb.write(fbuf, len fbuf) != len fbuf)
 		fail(sprint("write: %r"));
 
+	if(f.comprmethod == zip->Mplain)
+		putplain(fd, f);
+	else
+		putdeflate(fd, f, s);
+
+	# rewrite file header, now complete.  restore offset afterwards
+	off := zb.offset();
+	fbuf = f.pack();
+	if(zb.seek(foff, Bufio->SEEKSTART) < big 0)
+		fail(sprint("seek to file header: %r"));
+	if(zb.write(fbuf, len fbuf) != len fbuf)
+		fail(sprint("write %q file header: %r", s));
+	if(zb.seek(off, Bufio->SEEKSTART) < big 0)
+		fail(sprint("seek to past compressed contents: %r"));
+
+	fileheaders = ref (foff, f)::fileheaders;
+}
+
+putplain(fd: ref Sys->FD, f: ref Fhdr)
+{
+	crc := ~0;
+
+	buf := array[sys->ATOMICIO] of byte;
+	for(;;) {
+		n := sys->read(fd, buf, len buf);
+		if(n == 0)
+			break;
+		if(n < 0)
+			fail(sprint("read: %r"));
+		if(zb.write(buf, n) != n)
+			fail(sprint("write: %r"));
+		crc = zip->crc32(crc, buf[:n]);
+		f.uncomprsize += big n;
+	}
+	f.comprsize = f.uncomprsize;
+	f.crc32 = big ~crc;
+}
+
+putdeflate(fd: ref Sys->FD, f: ref Fhdr, s: string)
+{
 	rqc := deflate->start("");
 	pick r := <-rqc {
 	Start =>	;
 	* =>	fail(sprint("bad first filter msg"));
 	}
 
-	f.comprsize = big 0;
-	f.uncomprsize = big 0;
 	crc := ~0;
 Filter:
 	for(;;) pick rq := <-rqc {
@@ -200,18 +242,6 @@ Filter:
 	}
 
 	f.crc32 = big ~crc;
-
-	# rewrite file header, now complete.  restore offset afterwards
-	off := zb.offset();
-	fbuf = f.pack();
-	if(zb.seek(foff, Bufio->SEEKSTART) < big 0)
-		fail(sprint("seek to file header: %r"));
-	if(zb.write(fbuf, len fbuf) != len fbuf)
-		fail(sprint("write %q file header: %r", s));
-	if(zb.seek(off, Bufio->SEEKSTART) < big 0)
-		fail(sprint("seek to past compressed contents: %r"));
-
-	fileheaders = ref (foff, f)::fileheaders;
 }
 
 warn(s: string)

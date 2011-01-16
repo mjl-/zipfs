@@ -23,7 +23,7 @@ getzip, lszip, putzip \- zip file utilities
 .br
 .B putzip
 [
-.I -dv
+.I -dvp
 ]
 .I zipfile
 [
@@ -79,6 +79,11 @@ Keep existing files.  For
 .B getzip
 only.
 By default, existing files are overwritten.
+.TP
+.B -p
+Do not compress files added to the zip file.  For
+.B putzip
+only.
 
 .SH SOURCE
 .B /appl/cmd/getzip.b

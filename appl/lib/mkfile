@@ -4,8 +4,14 @@ TARG=\
 	zip.dis\
 
 SYSMODULES=\
-	sys.m\
+	arg.m\
 	bufio.m\
+	convcs.m\
+	daytime.m\
+	draw.m\
+	encoding.m\
+	filter.m\
+	sys.m\
 	zip.m\
 
 DISBIN=$ROOT/dis/lib

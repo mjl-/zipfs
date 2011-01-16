@@ -9,9 +9,7 @@ include "bufio.m";
 	bufio: Bufio;
 	Iobuf: import bufio;
 include "daytime.m";
-	daytime: Daytime;
-include "lists.m";
-	lists: Lists;
+	dt: Daytime;
 include "encoding.m";
 	base16: Encoding;
 include "filter.m";
@@ -56,8 +54,7 @@ init(): string
 	sys = load Sys Sys->PATH;
 	bufio = load Bufio Bufio->PATH;
 	base16 = load Encoding Encoding->BASE16PATH;
-	daytime = load Daytime Daytime->PATH;
-	lists = load Lists Lists->PATH;
+	dt = load Daytime Daytime->PATH;
 	inflate = load Filter Filter->INFLATEPATH;
 	inflate->init();
 	convcs = load Convcs Convcs->PATH;
@@ -84,7 +81,7 @@ sanitizepath(s: string): string
 		* =>	r = hd l::r;
 		}
 	rs := "";
-	for(r = lists->reverse(r); r != nil; r = tl r)
+	for(r = rev(r); r != nil; r = tl r)
 		rs += "/"+hd r;
 	if(rs != nil)
 		rs = rs[1:];
@@ -109,7 +106,7 @@ Extra.parse(d: array of byte): (ref Extra, string)
 	"get:*" =>
 		return (nil, sprint("bad extra"));
 	}
-	e.l = lists->reverse(e.l);
+	e.l = rev(e.l);
 	return (e, nil);
 }
 
@@ -247,15 +244,18 @@ mask(n: int): int
 
 mtimeunix2dos(m: int): (int, int)
 {
-	tm := daytime->local(m);
+	tm := dt->local(m);
 	s := tm.sec | tm.min<<5 | tm.hour<<11;
 	d := tm.mday | (tm.mon+1)<<5 | (tm.year-80)<<9;
 	return (s, d);
 }
 
+zerotm: ref dt->Tm;
 mtimedos2unix(s, d: int): int
 {
-	tm := daytime->local(daytime->now());
+	if(zerotm == nil)
+		zerotm = dt->local(dt->now());
+	tm := ref *zerotm;
 	tm.sec	= (s>>0) & mask(5);
 	tm.min	= (s>>5) & mask(6);
 	tm.hour	= (s>>11) & mask(5);
@@ -264,7 +264,7 @@ mtimedos2unix(s, d: int): int
 	tm.year	= ((d>>9) & mask(7))+80;
 	tm.wday	= 0;
 	tm.yday	= 0;
-	return daytime->tm2epoch(tm);
+	return dt->tm2epoch(tm);
 }
 
 CDFhdr.mk(f: ref Fhdr, off: big): ref CDFhdr
@@ -522,6 +522,18 @@ findeocdir(buf: array of byte): (int, string)
 	return (-1, "cannot find end of central directory");
 }
 
+supported(f: ref Fhdr): string
+{
+	if((f.versneeded & 255) > Version)
+		return sprint("version too low for opening file, have %s, need %s", versstr(Version), versstr(f.versneeded & 255));
+	if(f.flags & Fcompressedpatched)
+		return "file is a patch, not supported";
+	if(f.flags & Fstrongcrypto)
+		return "file is new-style encrypted, not supported";
+	if(f.flags & Fencrypted)
+		return "file is encrypted, not supported";
+	return nil;
+}
 
 openfile(fd: ref Sys->FD, cdf: ref CDFhdr): (ref Sys->FD, ref Fhdr, string)
 {
@@ -529,14 +541,9 @@ openfile(fd: ref Sys->FD, cdf: ref CDFhdr): (ref Sys->FD, ref Fhdr, string)
 	if(err != nil)
 		return (nil, nil, err);
 
-	if(f.versneeded & 255 > Version)
-		return (nil, nil, sprint("version too low for opening file, have %s, need %s", versstr(Version), versstr(f.versneeded & 255)));
-	if(f.flags & Fcompressedpatched)
-		return (nil, nil, sprint("file is a patch, not supported"));
-	if(f.flags & Fstrongcrypto)
-		return (nil, nil, sprint("file is new-style encrypted, not supported"));
-	if(f.flags & Fencrypted)
-		return (nil, nil, sprint("file is encrypted, not supported"));
+	err = supported(f);
+	if(err != nil)
+		return (nil, nil, err);
 
 	zfd: ref Sys->FD;
 	case f.comprmethod {
@@ -551,6 +558,28 @@ openfile(fd: ref Sys->FD, cdf: ref CDFhdr): (ref Sys->FD, ref Fhdr, string)
 	if(zfd == nil)
 		return (nil, nil, "opening file in zip failed");
 	return (zfd, f, nil);
+}
+
+readfhdr(fd: ref Sys->FD, cdf: ref CDFhdr): (ref Fhdr, string)
+{
+	(f, err) := Fhdr.read(fd, cdf.reloffset);
+	if(err == nil)
+		err = supported(f);
+	return (f, err);
+}
+
+# no crc32 protection, assumes supportedness has been checked already.
+pread(fd: ref Sys->FD, f: ref Fhdr, buf: array of byte, n: int, off: big): int
+{
+	if(f.comprmethod != Mplain) {
+		sys->werrstr("file is not plain (uncompressed)");
+		return -1;
+	}
+	if(off > f.uncomprsize)
+		off = f.uncomprsize;
+	if(off+big n > f.uncomprsize)
+		n = int (f.uncomprsize-off);
+	return sys->pread(fd, buf, n, f.dataoff+off);
 }
 
 cvtstr(d: array of byte, isutf8: int): string
@@ -847,6 +876,14 @@ crc32(crc: int, buf: array of byte): int
 	return crc;
 }
 
+
+rev[T](l: list of T): list of T
+{
+	r: list of T;
+	for(; l != nil; l = tl l)
+		r = hd l::r;
+	return r;
+}
 
 kill(pid: int)
 {

@@ -9,11 +9,19 @@ TARG=\
 SYSMODULES=\
 	arg.m\
 	bufio.m\
+	convcs.m\
 	daytime.m\
 	draw.m\
+	encoding.m\
+	filter.m\
+	lists.m\
 	string.m\
+	styx.m\
+	styxservers.m\
 	sys.m\
+	tables.m\
 	zip.m\
+
 
 DISBIN=$ROOT/dis
 

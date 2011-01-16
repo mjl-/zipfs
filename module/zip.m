@@ -62,7 +62,6 @@ Zip: module
 		text:	fn(f: self ref Fhdr): string;
 	};
 
-
 	CDFhdr: adt {
 		versmadeby:	int;
 		versneeded:	int;
@@ -104,8 +103,10 @@ Zip: module
 	};
 
 	comprmethod:	fn(m: int): string;
-	open:	fn(fd: ref Sys->FD): (ref Endofcdir, array of ref CDFhdr, string);
+	open:		fn(fd: ref Sys->FD): (ref Endofcdir, array of ref CDFhdr, string);
 	openfile:	fn(fd: ref Sys->FD, f: ref CDFhdr): (ref Sys->FD, ref Fhdr, string);
+	readfhdr:	fn(fd: ref Sys->FD, f: ref CDFhdr): (ref Fhdr, string);
+	pread:		fn(fd: ref Sys->FD, f: ref Fhdr, buf: array of byte, n: int, off: big): int;
 	sanitizepath:	fn(s: string): string;
-	crc32:	fn(crc: int, buf: array of byte): int;
+	crc32:		fn(crc: int, buf: array of byte): int;
 };

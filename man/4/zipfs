@@ -27,6 +27,9 @@ increases output.
 .TP
 .B -D
 Print a trace of styx messages.
+.TP
+.B -p
+Read uncompressed files in the zip file more efficiently.  The downside is that checksums are not checked.
 .SH SOURCE
 .B /appl/cmd/zipfs.b
 .br
