@@ -56,6 +56,7 @@ Zip: module
 		extra:		ref Extra;
 		dataoff:	big;  # not in file
 
+		mk:	fn(f: ref CDFhdr): ref Fhdr;
 		parse:	fn(buf: array of byte, off: big): (ref Fhdr, string);
 		read:	fn(fd: ref Sys->FD, off: big): (ref Fhdr, string);
 		pack:	fn(f: self ref Fhdr): array of byte;

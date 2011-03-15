@@ -37,7 +37,8 @@ Read uncompressed files in the zip file more efficiently.  The downside is that 
 .br
 .B /module/zip.m
 .SH SEE ALSO
-.IR getzip (1)
+.IR getzip (1),
+.IR zipstream (1).
 .SH BUGS
 Zip64 extensions are not supported.
 .br

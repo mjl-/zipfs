@@ -5,6 +5,7 @@ TARG=\
 	getzip.dis\
 	putzip.dis\
 	zipfs.dis\
+	zipstream.dis\
 
 SYSMODULES=\
 	arg.m\

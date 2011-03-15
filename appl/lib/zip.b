@@ -116,12 +116,14 @@ Extra.pack(e: self ref Extra): array of byte
 	if(e != nil)
 		l := e.l;
 	for(t := l; t != nil; t = tl t)
-		n += 2+len (hd t).t1;
+		n += 2+2+len (hd t).t1;
 	buf := array[n] of byte;
 	o := 0;
 	for(; l != nil; l = tl l) {
-		o = p16(buf, o, (hd l).t0);
-		o = pbuf(buf, o, (hd l).t1);
+		(id, dat) := *hd l;
+		o = p16(buf, o, id);
+		o = p16(buf, o, len dat);
+		o = pbuf(buf, o, dat);
 	}
 	return buf;
 }
@@ -136,6 +138,23 @@ Extra.text(e: self ref Extra): string
 	return "Extra("+s+")";
 }
 
+
+Fhdr.mk(x: ref CDFhdr): ref Fhdr
+{
+	return ref Fhdr (
+		x.versneeded,
+		x.flags,
+		x.comprmethod,
+		x.filemtime,
+		x.filemdate,
+		x.mtime,
+		x.crc32,
+		x.comprsize,
+		x.uncomprsize,
+		x.filename,
+		ref *x.extra,
+		big 0);
+}
 
 fhdrsig := array[] of {byte 'P', byte 'K', byte 3, byte 4};
 Fhdr.parse(buf: array of byte, off: big): (ref Fhdr, string)

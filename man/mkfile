@@ -2,6 +2,7 @@
 
 MAN=\
 	1/getzip\
+	1/zipstream\
 	4/zipfs\
 
 <mkman

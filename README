@@ -12,13 +12,11 @@ zipfs consists of three parts:
 - a read-only zip file system, allowing you to mount a zip file
   using styx.
 - tools to read/list/write zip files.
+- tool to rewrite zip file with files in different order.
 - a library to read & write zip files.
 
-see the manual page getzip(1) for documentation about the tools
-getzip, lszip and putzip.  see the manual page zipfs(4) for
-documentation about the zip file system.  for now, the library is
-undocumented.  the implementation of the programs should be regarded
-as library documentation for now.
+see the manual pages getzip(1), zipstream(1) and zipfs(4) for more
+information.  the library is currently undocumented.
 
 
 # install
@@ -47,6 +45,7 @@ mechiel lukkien, reachable at mechiel@ueber.net.
 
 - determine inflate problem on input, where inflate wants one more
   byte than in input stream, and then returns it as leftover byte.
+- compressed central directory (part of zip64?)
 
 perhaps:
 

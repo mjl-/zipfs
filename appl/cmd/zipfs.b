@@ -105,8 +105,7 @@ init(nil: ref Draw->Context, args: list of string)
 	arg->setusage(arg->progname()+" [-Ddp] zipfile");
 	while((c := arg->opt()) != 0)
 		case c {
-		'D' =>	Dflag++;
-			styxservers->traceset(Dflag);
+		'D' =>	styxservers->traceset(Dflag++);
 		'd' =>	zip->dflag = dflag++;
 		'p' =>	pflag++;
 		* =>	arg->usage();
@@ -217,6 +216,7 @@ openzfile(fid: int, qid: big): (ref Zfile, string)
 		(zf.fd, nil, err) = zip->openfile(zipfd, cdf);
 	if(err != nil)
 		return (nil, err);
+	if(Dflag) warn("zipfs: "+cdf.filename);
 	zfiles.add(fid, zf);
 	return (zf, nil);
 }

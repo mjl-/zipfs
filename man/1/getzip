@@ -96,6 +96,7 @@ only.
 .B /appl/lib/zip.m
 .SH SEE ALSO
 .IR gettar (1),
+.IR zipstream (1),
 .IR zipfs (4)
 .SH BUGS
 Zip64 extensions are not supported.
